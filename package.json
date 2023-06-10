@@ -1,6 +1,6 @@
 {
-  "name": "markdown-image-helper",
-  "displayName": "markdown-image-helper",
+  "name": "markdown-editor-helper",
+  "displayName": "markdown-editor-helper",
   "description": "",
   "version": "0.0.1",
   "engines": {
@@ -15,12 +15,7 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "markdown-image-helper.helloWorld",
-        "title": "Hello World"
-      }
-    ]
+    "commands": []
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
