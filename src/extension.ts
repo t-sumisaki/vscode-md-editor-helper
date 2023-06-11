@@ -16,6 +16,8 @@ class ImageOnDropProvider implements vscode.DocumentDropEditProvider {
 
     const wsedit = new vscode.WorkspaceEdit();
 
+    const docDir = path.dirname(_document.uri.fsPath);
+
     // 対象がワークスペースを開いていない場合は無視
     if (
       !vscode.workspace.workspaceFolders ||
@@ -44,7 +46,8 @@ class ImageOnDropProvider implements vscode.DocumentDropEditProvider {
 
     // URIをバラしておく
     const uris: vscode.Uri[] = [];
-    for (const resource of urlList.split("\n")) {
+    // Windowsの場合はCR+LFで入ってきてしまうので、LFに統一してから捌く
+    for (const resource of urlList.replace(/\r\n/g, "\n").split("\n")) {
       try {
         uris.push(vscode.Uri.parse(resource));
       } catch {
@@ -62,34 +65,52 @@ class ImageOnDropProvider implements vscode.DocumentDropEditProvider {
     await Promise.all(
       uris.map(async (uri, index) => {
         try {
+          console.log("read file:", uri.fsPath);
           // ファイル名
-          const name = path.basename(uri.path);
+          const name = path.basename(uri.fsPath);
           // 拡張子
           const ext = path.extname(name);
+          // ディレクトリパス
+          const dirname = path.dirname(uri.fsPath);
 
-          // データ読み込み
-          const data = await vscode.workspace.fs.readFile(uri);
+          let destPath = uri;
 
-          // 配置先のパスを作成
-          // UUIDv4を使用する
-          const destPath = vscode.Uri.file(
-            path.join(path.dirname(_document.uri.fsPath), randomUUID() + ext)
-          );
+          // ディレクトリに無いもの（ディレクトリの外から来たもの）はコピーする
+          if (path.resolve(dirname) !== path.resolve(docDir)) {
+            // データ読み込み
+            const data = await vscode.workspace.fs.readFile(uri);
 
-          // ファイルを作成し、書き込み
-          wsedit.createFile(destPath, { ignoreIfExists: true });
-          await vscode.workspace.fs.writeFile(destPath, data);
+            // 配置先のパスを作成
+            // UUIDv4を使用する
+            destPath = vscode.Uri.file(
+              path.join(path.dirname(_document.uri.fsPath), randomUUID() + ext)
+            );
 
-          // 適用して結果を確認
-          let isDone = await vscode.workspace.applyEdit(wsedit);
-          if (isDone) {
-            console.log("File created");
+            // ファイルを作成し、書き込み
+            wsedit.createFile(destPath, { ignoreIfExists: true });
+            await vscode.workspace.fs.writeFile(destPath, data);
+
+            // 適用して結果を確認
+            let isDone = await vscode.workspace.applyEdit(wsedit);
+            if (isDone) {
+              console.log("File created");
+            }
           }
 
+          // TODO: スニペットの作成方法についてもう少し検討する必要がある
+          const relPath = path.relative(docDir, destPath.fsPath);
+
+          // snippet.appendText(`[$1] (${relPath})`);
+          // snippet.appendVariable(`image${index + 1}`, `image${index + 1}`);
+          snippet.value += `![\$\{${index + 1}:caption\}](${relPath})  \n`;
+
           // 出力用のスニペットを作成
-          snippet.appendText(`${index + 1}. ${name}\n`);
-        } catch {
-          console.log("error");
+          // snippet.appendText(`${index + 1}. ${name}\n`);
+        } catch (e: unknown) {
+          console.log("error:", uri.fsPath);
+          if (e instanceof Error) {
+            console.error(e.message, e.stack);
+          }
         }
       })
     );
