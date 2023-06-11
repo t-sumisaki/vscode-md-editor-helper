@@ -1,9 +1,16 @@
 import * as vscode from "vscode";
 
 import * as path from "path";
-import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 
 const urlListMime = "text/uri-list";
+
+function toMD5Hash(data: Uint8Array) {
+  const md5hash = createHash("md5");
+  md5hash.update(data);
+
+  return md5hash.digest("hex");
+}
 
 class ImageOnDropProvider implements vscode.DocumentDropEditProvider {
   async provideDocumentDropEdits(
@@ -83,7 +90,10 @@ class ImageOnDropProvider implements vscode.DocumentDropEditProvider {
             // 配置先のパスを作成
             // UUIDv4を使用する
             destPath = vscode.Uri.file(
-              path.join(path.dirname(_document.uri.fsPath), randomUUID() + ext)
+              path.join(
+                path.dirname(_document.uri.fsPath),
+                toMD5Hash(data) + ext
+              )
             );
 
             // ファイルを作成し、書き込み
